@@ -1,25 +1,99 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
+title: 'Reproducible Research: Peer Assessment 1'
+output:
   html_document:
-    keep_md: true
+    keep_md: yes
+  pdf_document: default
 ---
+```{r}
 
 
-## Loading and preprocessing the data
+```
+
+###Loading and preprocessing the data
+
+```{r processingData,echo=TRUE, results='hide'}
+setwd("C:/Users/Fooglee/Work/RepData_PeerAssessment1")
+activty=read.csv("activity/activity.csv",na.string="NA",stringsAsFactor=F)
+activty$date<-as.Date(strptime(activty$date,"%Y-%m-%d"))
+ttlStpsDay<-tapply(activty$steps,activty$date,sum)
+hist(ttlStpsDay,xlab = "Total number of steps",breaks = 10,main = "Total number of steps taken each day")
+
+```
+     
+### What is mean total number of steps taken per day?
+```{r}
+mn=mean(ttlStpsDay,na.rm=T)
+md=median(ttlStpsDay,na.rm = T)
+```
+Mean of total number of steps per day (ignoring NA values) is `r mn`  
+Median of total number of steps per day (ignoring NA values) is `r md`
+
+### What is the average daily activity pattern?
+
+```{r}
+library(ggplot2)
+agr<-aggregate(x = list(mnstps=activty$steps),by=list(intrvl=activty$interval),FUN = mean,na.rm=T)
+plot(x = agr$intrvl, y=agr$mnstps,type="l",xlab = "5 minutes Interval", ylab = "Average number of steps taken",main ="Average Number of Steps Taken Averaged Across All Days",xlim=c(0,2500),ylim=c(0,200))
+
+```
+
+### Imputing missing values
+
+```{r}
+naVals= sum(is.na(activty$steps))
+```
+Number of NA values = `r naVals`
+
+The following code replaces NA values. It repaces NA values with next days mean
+
+```{r}
+ttlStpsMean<-tapply(activty$steps,activty$date,mean,na.rm=T)
+
+for (i in 1:length(ttlStpsMean)){
+  if(is.na(ttlStpsMean[i])){
+    j=i
+    while(T){
+      j<-j+1
+      if(j>length(ttlStpsMean)){
+        j=0;
+        next
+      }
+      if(!is.na(ttlStpsMean[j])){
+        ttlStpsMean[i]<-ttlStpsMean[j];
+        break
+      }
+    }
+  }
+}
+noNAactivty<-activty;
+noNAactivty$steps[is.na(noNAactivty$steps)]<-ttlStpsMean[as.character(noNAactivty$date[is.na(noNAactivty$steps)])]
+
+ttlStpsNoNADay<-tapply(noNAactivty$steps,noNAactivty$date,sum)
+hist(ttlStpsNoNADay,xlab = "Total number of steps",breaks = 10,main = "Total number of steps taken each day")
+```
+
+```{r}
+mnn=mean(ttlStpsNoNADay)
+mdd=median(ttlStpsNoNADay)
+```
+Mean of total number of steps per day (replacing NA values) is `r mnn`  
+Median of total number of steps per day (replacing NA values) is `r mdd`
+
+### Are there differences in activity patterns between weekdays and weekends?
+
+```{r}
+weekend=c("Sunday","Saturday")
+noNAactivty$weekTime<-as.factor(ifelse(weekdays(noNAactivty$date) %in% weekend,"weekend","weekday"))
 
 
+agrgd<-aggregate(x=list(steps=noNAactivty$steps),by = list(intrvl=noNAactivty$interval, weektime=noNAactivty$weekTime),mean)
 
-## What is mean total number of steps taken per day?
-
-
-
-## What is the average daily activity pattern?
-
-
-
-## Imputing missing values
-
-
-
-## Are there differences in activity patterns between weekdays and weekends?
+library("lattice")
+p <- xyplot(agrgd$steps ~ intrvl | factor(weektime), data=agrgd, 
+            type = 'l' ,
+            main="Average Steps Taken agregated Across All Weekday or Weekend",
+            xlab="Interval",
+            ylab="Average Number of Steps Taken")
+print (p) 
+```
